@@ -17,12 +17,18 @@
 package com.splunk.rum;
 
 import androidx.annotation.NonNull;
+
+import com.google.gson.Gson;
+
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 class CrashReporter {
 
@@ -57,10 +63,31 @@ class CrashReporter {
             // the first error to arrive here is actually responsible for crashing the app; and all
             // the others that are captured before OS actually kills the process are just additional
             // info (component=error)
-            String component =
-                    crashHappened.compareAndSet(false, true)
-                            ? SplunkRum.COMPONENT_CRASH
-                            : SplunkRum.COMPONENT_ERROR;
+            String component = crashHappened.compareAndSet(false, true)
+                    ? SplunkRum.COMPONENT_CRASH
+                    : SplunkRum.COMPONENT_ERROR;
+
+            ArrayList<Frame> exceptionFrames = new ArrayList<>();
+
+            for (StackTraceElement stackTraceElement : e.getStackTrace()) {
+                exceptionFrames.add(new Frame(stackTraceElement.toString()));
+            }
+
+            ArrayList<CrashThread> threads = new ArrayList<>();
+
+            for (Map.Entry<Thread, StackTraceElement[]> entry : Thread.getAllStackTraces().entrySet()) {
+                Thread thread = entry.getKey();
+                StackTraceElement[] stackTraceElements = entry.getValue();
+                ArrayList<Frame> crashFrames = new ArrayList<>();
+                for (StackTraceElement stackTraceElement : stackTraceElements) {
+                    crashFrames.add(new Frame(stackTraceElement.toString()));
+                }
+                threads.add(new CrashThread(thread.getName().equals(t.getName()), thread.getName(), crashFrames));
+            }
+
+            CrashException exception = new CrashException(exceptionFrames, e.getClass().getSimpleName(), e.getMessage());
+            CrashReport crashReport = new CrashReport(exception, threads);
+            String crashReportString = new Gson().toJson(crashReport);
 
             String exceptionType = e.getClass().getSimpleName();
             tracer.spanBuilder(exceptionType)
@@ -68,6 +95,7 @@ class CrashReporter {
                     .setAttribute(SemanticAttributes.THREAD_NAME, t.getName())
                     .setAttribute(SemanticAttributes.EXCEPTION_ESCAPED, true)
                     .setAttribute(SplunkRum.COMPONENT_KEY, component)
+                    .setAttribute("exception.crashreport", crashReportString)
                     .startSpan()
                     .recordException(e)
                     .setStatus(StatusCode.ERROR)
@@ -81,3 +109,4 @@ class CrashReporter {
         }
     }
 }
+

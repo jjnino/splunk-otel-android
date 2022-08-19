@@ -61,7 +61,7 @@ class RumInitializer {
 
     // we're setting a fairly large length limit to capture long stack traces; ~256 lines,
     // assuming 128 chars per line
-    static final int MAX_ATTRIBUTE_LENGTH = 256 * 128;
+    static final int MAX_ATTRIBUTE_LENGTH = 512 * 512;
 
     private final Config config;
     private final AtomicReference<Attributes> globalAttributes;

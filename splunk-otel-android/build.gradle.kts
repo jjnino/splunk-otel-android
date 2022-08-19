@@ -57,6 +57,8 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-semconv")
     implementation("io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:$otelAlphaVersion")
 
+    implementation("com.google.code.gson:gson:2.9.1")
+
     api("io.opentelemetry:opentelemetry-api")
     api("com.squareup.okhttp3:okhttp:4.10.0")
 
